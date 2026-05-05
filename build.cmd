@@ -1,12 +1,10 @@
-:: Create a build directory and step into it
+@echo off
+if exist build rmdir /s /q build
 mkdir build
 cd build
 
-:: Generate the Ninja build files using Clang
-cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ ..
+:: Generate the Ninja build files using Clang with Release + Symbols
+cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
 
 :: Compile the code
 ninja
-
-:: Run the benchmark
-avx_benchmark.exe
