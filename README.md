@@ -48,7 +48,22 @@ mkdir build
 cd build
 cmake ..
 cmake --build . --config Release
-./avx_benchmark
+./avx_benchmark [OPTIONS]
+```
+
+### Command Line Options
+
+The benchmark supports the following options:
+
+*   `-h,--help`: Display the help message and exit.
+*   `-t,--test {original,fixed,both}`: Specify which test to run. 
+    *   `original`: Run only the code with legacy SSE instructions.
+    *   `fixed`: Run only the code with VEX/EVEX encoded instructions.
+    *   `both` (default): Run both and compare performance.
+
+Example:
+```bash
+./avx_benchmark --test fixed
 ```
 
 The benchmark uses `-O3 -mavx512f -mavx512bw` flags to ensure the compiler generates the correct instructions and minimizes loop overhead.

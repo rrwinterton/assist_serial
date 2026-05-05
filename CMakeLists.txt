@@ -9,3 +9,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mavx512f -mavx512bw")
 
 add_executable(avx_benchmark main.cpp)
+target_include_directories(avx_benchmark PRIVATE include)

@@ -2,6 +2,8 @@
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
+#include <string>
+#include <CLI/CLI.hpp>
 
 // Mock data structures aligned to 64 bytes (AVX-512 ZMM width)
 alignas(64) uint8_t yuvconstants[256] = {0};
@@ -67,7 +69,15 @@ alignas(64) uint8_t unperm[64] = {0};
           "zmm16", "zmm17", "zmm18", "memory" \
     )
 
-int main() {
+int main(int argc, char** argv) {
+    CLI::App app{"AVX-512 Microcode Assist Benchmark"};
+
+    std::string test_mode = "both";
+    app.add_option("-t,--test", test_mode, "Test to run: original, fixed, both")
+       ->check(CLI::IsMember({"original", "fixed", "both"}));
+
+    CLI11_PARSE(app, argc, argv);
+
     const int iterations = 10000000; // 10 Million iterations
     
     // Pointers to pass into the asm blocks
@@ -77,34 +87,43 @@ int main() {
     uint8_t* p_unp = unperm;
 
     std::cout << "Starting AVX-512 Microcode Assist Benchmark...\n";
-    std::cout << "Iterations: " << iterations << "\n\n";
+    std::cout << "Iterations: " << iterations << "\n";
+    std::cout << "Test Mode:  " << test_mode << "\n\n";
+
+    double duration_orig_ms = 0;
+    double duration_fixed_ms = 0;
 
     // --- TEST 1: ORIGINAL CODE (Penalty) ---
-    auto start_orig = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < iterations; ++i) {
-        YUVTORGB_SETUP_AVX512BW_ORIGINAL(p_yuv, p_qsp, p_dqsp, p_unp);
+    if (test_mode == "original" || test_mode == "both") {
+        auto start_orig = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < iterations; ++i) {
+            YUVTORGB_SETUP_AVX512BW_ORIGINAL(p_yuv, p_qsp, p_dqsp, p_unp);
+        }
+        auto end_orig = std::chrono::high_resolution_clock::now();
+        duration_orig_ms = std::chrono::duration<double, std::milli>(end_orig - start_orig).count();
+        std::cout << "Original Code Time: " << std::fixed << std::setprecision(2) << duration_orig_ms << " ms\n";
     }
-    auto end_orig = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration_orig = end_orig - start_orig;
 
     // --- TEST 2: FIXED CODE (No Penalty) ---
-    auto start_fixed = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < iterations; ++i) {
-        YUVTORGB_SETUP_AVX512BW_FIXED(p_yuv, p_qsp, p_dqsp, p_unp);
+    if (test_mode == "fixed" || test_mode == "both") {
+        auto start_fixed = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < iterations; ++i) {
+            YUVTORGB_SETUP_AVX512BW_FIXED(p_yuv, p_qsp, p_dqsp, p_unp);
+        }
+        auto end_fixed = std::chrono::high_resolution_clock::now();
+        duration_fixed_ms = std::chrono::duration<double, std::milli>(end_fixed - start_fixed).count();
+        std::cout << "Fixed Code Time:    " << std::fixed << std::setprecision(2) << duration_fixed_ms << " ms\n";
     }
-    auto end_fixed = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration_fixed = end_fixed - start_fixed;
 
     // --- RESULTS ---
-    std::cout << "Results:\n";
-    std::cout << "------------------------------------------\n";
-    std::cout << "Original Code Time: " << std::fixed << std::setprecision(2) << duration_orig.count() << " ms\n";
-    std::cout << "Fixed Code Time:    " << std::fixed << std::setprecision(2) << duration_fixed.count() << " ms\n";
-    std::cout << "------------------------------------------\n";
-    
-    if (duration_fixed.count() < duration_orig.count()) {
-        double speedup = duration_orig.count() / duration_fixed.count();
-        std::cout << "Speedup: " << speedup << "x faster with fixed AVX-512 instructions.\n";
+    if (test_mode == "both" && duration_fixed_ms > 0 && duration_orig_ms > 0) {
+        std::cout << "------------------------------------------\n";
+        if (duration_fixed_ms < duration_orig_ms) {
+            double speedup = duration_orig_ms / duration_fixed_ms;
+            std::cout << "Speedup: " << speedup << "x faster with fixed AVX-512 instructions.\n";
+        } else {
+            std::cout << "No significant speedup observed (may require a CPU vulnerable to AVX-512 penalties).\n";
+        }
     }
 
     return 0;
